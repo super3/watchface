@@ -18,9 +18,11 @@ static char s_day_buf[8]    = "---";
 static char s_date_buf[12]  = "--- --";
 static char s_year_buf[8]   = "----";
 static char s_steps_buf[12] = "0";
+static int  s_steps = 0;
 static char s_water_buf[16] = "-- OZ";
 static int  s_battery = 0;
 static bool s_connected = true;
+#define STEP_GOAL 10000
 
 // Water intake (oz), synced from the TapSip companion (com.watertracker.widget)
 static int  s_water_today = -1;   // -1 = not yet known
@@ -100,6 +102,19 @@ static void draw_vf(GContext *ctx, const char *t, GRect r, GFont f,
   graphics_draw_text(ctx, t, f, r, GTextOverflowModeTrailingEllipsis, a, NULL);
 }
 
+// Outlined progress bar with a solid fill (same style as the battery gauge).
+static void draw_bar(GContext *ctx, GRect r, int percent) {
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  graphics_context_set_stroke_color(ctx, COL_FG);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_rect(ctx, r);
+  int fw = ((r.size.w - 4) * percent) / 100;
+  graphics_context_set_fill_color(ctx, COL_FG);
+  graphics_fill_rect(ctx, GRect(r.origin.x + 2, r.origin.y + 2, fw, r.size.h - 4),
+                     0, GCornerNone);
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -107,12 +122,14 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   const int L = 7, R = 192;   // inner content edges
 
   // ---- Frame + section panels (matches the reference's layered structure) ----
-  // Black is filled all the way to the screen edge (no white corner specks),
-  // and the white interior is rounded so the bold frame reads as rounded.
+  // Rounding is ONLY on the 4 outer screen corners (the black silhouette is a
+  // rounded rect matching the display); the white interior and every section
+  // inside it are square. Corner triangles are the black window background, so
+  // there are no white corner specks.
   graphics_context_set_fill_color(ctx, COL_FG);
-  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+  graphics_fill_rect(ctx, layer_get_bounds(layer), 12, GCornersAll);
   graphics_context_set_fill_color(ctx, COL_BG);
-  graphics_fill_rect(ctx, GRect(5, 5, 190, 218), 7, GCornersAll);
+  graphics_fill_rect(ctx, GRect(5, 5, 190, 218), 0, GCornerNone);
 
   // Each content section is its own 1px-bordered box, 1px inside the outer
   // border, so a 1px gap shows between each box and the bold frame. The boxes
@@ -136,23 +153,28 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   // ===================================================================
   // TOP SECTION  (y 8..84):  STEPS / value  -- rule --  DISTANCE / value
   // ===================================================================
-  // Two stacked stats: STEPS (top) and WATER (bottom)
-  draw_vf(ctx, "STEPS", GRect(L + 4, 9, 120, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_steps_buf, GRect(L + 4, 23, R - L - 8, 24), s_val_font, GTextAlignmentLeft);
-  graphics_draw_line(ctx, GPoint(L + 3, 48), GPoint(R - 3, 48));
-  draw_vf(ctx, "WATER", GRect(L + 4, 50, 120, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_water_buf, GRect(L + 4, 64, R - L - 8, 24), s_val_font, GTextAlignmentLeft);
+  // Two stats, each: label + value on one line, with a progress bar below.
+  // STEPS (upper half of the box)
+  draw_vf(ctx, "STEPS", GRect(L + 4, 11, 70, 18), s_lbl_font, GTextAlignmentLeft);
+  draw_vf(ctx, s_steps_buf, GRect(98, 11, R - 98 - 1, 18), s_val_font, GTextAlignmentRight);
+  draw_bar(ctx, GRect(11, 32, 177, 8), (s_steps * 100) / STEP_GOAL);
+
+  graphics_context_set_stroke_color(ctx, COL_FG);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_line(ctx, GPoint(6, 46), GPoint(193, 46));   // split the box
+
+  // WATER (lower half of the box)
+  draw_vf(ctx, "WATER", GRect(L + 4, 50, 70, 18), s_lbl_font, GTextAlignmentLeft);
+  draw_vf(ctx, s_water_buf, GRect(90, 50, R - 90 - 1, 18), s_val_font, GTextAlignmentRight);
+  int water_pct = (s_water_today > 0 && s_water_goal > 0)
+                    ? (s_water_today * 100) / s_water_goal : 0;
+  draw_bar(ctx, GRect(11, 71, 177, 8), water_pct);
 
   // ===================================================================
   // BATTERY SECTION  (box y92..110)
   // ===================================================================
   draw_vf(ctx, "BATTERY", GRect(L + 4, 93, 90, 18), s_lbl_font, GTextAlignmentLeft);
-  GRect gauge = GRect(82, 96, R - 82 - 2, 12);
-  graphics_draw_rect(ctx, gauge);
-  int fw = ((gauge.size.w - 4) * s_battery) / 100;
-  if (fw < 0) fw = 0;
-  graphics_context_set_fill_color(ctx, COL_FG);
-  graphics_fill_rect(ctx, GRect(gauge.origin.x + 2, gauge.origin.y + 2, fw, gauge.size.h - 4), 0, GCornerNone);
+  draw_bar(ctx, GRect(82, 96, R - 82 - 2, 12), s_battery);
 
   // ===================================================================
   // CLOCK SECTION  (box y116..185)  -- digits drawn into framebuffer below
@@ -219,8 +241,10 @@ static void format_commas(int v, char *out, size_t n) {
 static void update_health(void) {
 #if defined(PBL_HEALTH)
   time_t s = time_start_of_today(), e = time(NULL);
-  if (health_service_metric_accessible(HealthMetricStepCount, s, e) & HealthServiceAccessibilityMaskAvailable)
-    format_commas((int)health_service_sum_today(HealthMetricStepCount), s_steps_buf, sizeof(s_steps_buf));
+  if (health_service_metric_accessible(HealthMetricStepCount, s, e) & HealthServiceAccessibilityMaskAvailable) {
+    s_steps = (int)health_service_sum_today(HealthMetricStepCount);
+    format_commas(s_steps, s_steps_buf, sizeof(s_steps_buf));
+  }
 #endif
 }
 
