@@ -1,0 +1,44 @@
+{
+  "name": "casio-watchface",
+  "author": "super3",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Casio Style",
+    "uuid": "c4b4bf1f-46b1-4bcd-a65d-81e96d4ffcc5",
+    "sdkVersion": "3",
+    "enableMultiJS": false,
+    "capabilities": ["health"],
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "TodayOz",
+      "GoalOz",
+      "LogOz",
+      "RequestSync",
+      "RemoveLast",
+      "WatchSeq",
+      "LogTs",
+      "History"
+    ],
+    "companionApp": {
+      "android": {
+        "url": "https://github.com/super3/water",
+        "apps": [
+          {
+            "package": "com.watertracker.widget"
+          }
+        ]
+      }
+    },
+    "resources": {
+      "media": []
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Pebble build output
+build/
+*.pbw
+
+# waf lock
+.lock-waf*
+
+# Local design reference (third-party screenshot, not for redistribution)
+*.png
