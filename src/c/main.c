@@ -137,54 +137,56 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   // a rounded look (the border emerges from the rounded corner, as in the mock).
   graphics_context_set_stroke_color(ctx, COL_FG);
   graphics_context_set_stroke_width(ctx, 1);
-  graphics_draw_rect(ctx, GRect(6, 6,   188, 81));   // top     box y6..86
-  graphics_draw_rect(ctx, GRect(6, 92,  188, 19));   // battery box y92..110
-  graphics_draw_rect(ctx, GRect(6, 116, 188, 70));   // clock   box y116..185
-  graphics_draw_rect(ctx, GRect(6, 185, 188, 37));   // bottom  box y185..221
+  graphics_draw_rect(ctx, GRect(6, 6,   188, 73));   // top     box y6..78
+  graphics_draw_rect(ctx, GRect(6, 84,  188, 33));   // battery box y84..116
+  graphics_draw_rect(ctx, GRect(6, 122, 188, 63));   // clock   box y122..184
+  graphics_draw_rect(ctx, GRect(6, 184, 188, 38));   // bottom  box y184..221
 
   // The "large black border" rails around the battery run full width (edge to
   // edge, merging with the outer frame); a 1px gap separates them from each box.
   graphics_context_set_fill_color(ctx, COL_FG);
-  graphics_fill_rect(ctx, GRect(0, 88,  200, 3), 0, GCornerNone);   // top <-> battery
-  graphics_fill_rect(ctx, GRect(0, 112, 200, 3), 0, GCornerNone);   // battery <-> clock
+  graphics_fill_rect(ctx, GRect(0, 80,  200, 3), 0, GCornerNone);   // top <-> battery
+  graphics_fill_rect(ctx, GRect(0, 118, 200, 3), 0, GCornerNone);   // battery <-> clock
 
   graphics_context_set_text_color(ctx, COL_FG);
 
   // ===================================================================
   // TOP SECTION  (y 8..84):  STEPS / value  -- rule --  DISTANCE / value
   // ===================================================================
-  // Two stats, each: label + value on one line, with a progress bar below.
-  // STEPS (upper half of the box)
-  draw_vf(ctx, "STEPS", GRect(L + 4, 11, 70, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_steps_buf, GRect(98, 11, R - 98 - 1, 18), s_val_font, GTextAlignmentRight);
-  draw_bar(ctx, GRect(11, 32, 177, 8), (s_steps * 100) / STEP_GOAL);
+  // Three identical stats (STEPS, WATER, BATTERY): label + value on one line,
+  // with a full-width progress bar below. STEPS + WATER share the top box.
+  draw_vf(ctx, "STEPS", GRect(11, 9, 70, 18), s_lbl_font, GTextAlignmentLeft);
+  draw_vf(ctx, s_steps_buf, GRect(98, 9, 91, 18), s_val_font, GTextAlignmentRight);
+  draw_bar(ctx, GRect(11, 27, 177, 7), (s_steps * 100) / STEP_GOAL);
 
   graphics_context_set_stroke_color(ctx, COL_FG);
   graphics_context_set_stroke_width(ctx, 1);
-  graphics_draw_line(ctx, GPoint(6, 46), GPoint(193, 46));   // split the box
+  graphics_draw_line(ctx, GPoint(6, 42), GPoint(193, 42));   // split the box
 
-  // WATER (lower half of the box)
-  draw_vf(ctx, "WATER", GRect(L + 4, 50, 70, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_water_buf, GRect(90, 50, R - 90 - 1, 18), s_val_font, GTextAlignmentRight);
+  draw_vf(ctx, "WATER", GRect(11, 45, 70, 18), s_lbl_font, GTextAlignmentLeft);
+  draw_vf(ctx, s_water_buf, GRect(90, 45, 99, 18), s_val_font, GTextAlignmentRight);
   int water_pct = (s_water_today > 0 && s_water_goal > 0)
                     ? (s_water_today * 100) / s_water_goal : 0;
-  draw_bar(ctx, GRect(11, 71, 177, 8), water_pct);
+  draw_bar(ctx, GRect(11, 63, 177, 7), water_pct);
 
   // ===================================================================
   // BATTERY SECTION  (box y92..110)
   // ===================================================================
-  draw_vf(ctx, "BATTERY", GRect(L + 4, 93, 90, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_bar(ctx, GRect(82, 96, R - 82 - 2, 12), s_battery);
+  char batt_buf[8];
+  snprintf(batt_buf, sizeof(batt_buf), "%d%%", s_battery);
+  draw_vf(ctx, "BATTERY", GRect(11, 87, 90, 18), s_lbl_font, GTextAlignmentLeft);
+  draw_vf(ctx, batt_buf, GRect(120, 87, 69, 18), s_val_font, GTextAlignmentRight);
+  draw_bar(ctx, GRect(11, 105, 177, 7), s_battery);
 
   // ===================================================================
-  // CLOCK SECTION  (box y116..185)  -- digits drawn into framebuffer below
+  // CLOCK SECTION  (box y122..184)  -- digits drawn into framebuffer below
   // ===================================================================
   // AM/PM indicator + bluetooth (normal graphics, right side)
   if (!s_h24) {
-    draw_vf(ctx, s_pm ? "PM" : "AM", GRect(R - 28, 118, 26, 18), s_lbl_font, GTextAlignmentRight);
+    draw_vf(ctx, s_pm ? "PM" : "AM", GRect(R - 28, 124, 26, 18), s_lbl_font, GTextAlignmentRight);
   }
   if (s_connected) {
-    int bx = R - 12, by = 165;
+    int bx = R - 12, by = 170;
     graphics_context_set_stroke_color(ctx, COL_FG);
     graphics_context_set_stroke_width(ctx, 2);
     graphics_draw_line(ctx, GPoint(bx, by - 8), GPoint(bx, by + 8));
@@ -209,7 +211,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int h = s_hour;
   int d0 = h / 10, d1 = h % 10, d2 = s_min / 10, d3 = s_min % 10;
   if (!s_h24 && d0 == 0) d0 = -1;   // blank leading zero in 12h
-  const int CY = 123;
+  const int CY = 126;
   GBitmap *fb = graphics_capture_frame_buffer(ctx);
   if (fb) {
     draw_digit(fb, 11,  CY, d0);
@@ -218,8 +220,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     draw_digit(fb, 135, CY, d3);
     // colon: two solid blocks
     uint8_t on = COL_FG.argb;
-    for (int yy = 141; yy <= 147; yy++) for (int xx = 85; xx <= 91; xx++) fb_px(fb, xx, yy, on);
-    for (int yy = 158; yy <= 164; yy++) for (int xx = 85; xx <= 91; xx++) fb_px(fb, xx, yy, on);
+    for (int yy = 144; yy <= 150; yy++) for (int xx = 85; xx <= 91; xx++) fb_px(fb, xx, yy, on);
+    for (int yy = 161; yy <= 167; yy++) for (int xx = 85; xx <= 91; xx++) fb_px(fb, xx, yy, on);
     graphics_release_frame_buffer(ctx, fb);
   }
 }
