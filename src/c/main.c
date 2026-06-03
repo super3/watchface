@@ -156,7 +156,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   // Three identical stats (STEPS, WATER, BATTERY): label + value on one line,
   // with a full-width progress bar below. STEPS + WATER share the top box.
   draw_vf(ctx, "STEPS", GRect(11, 11, 50, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_steps_buf, GRect(52, 11, 56, 18), s_val_font, GTextAlignmentRight);
+  draw_vf(ctx, s_steps_buf, GRect(52, 8, 56, 18), s_val_font, GTextAlignmentRight);
   draw_bar(ctx, GRect(116, 17, 72, 8), (s_steps * 100) / STEP_GOAL);
 
   graphics_context_set_stroke_color(ctx, COL_FG);
@@ -164,7 +164,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_draw_line(ctx, GPoint(6, 35), GPoint(193, 35));   // split the box
 
   draw_vf(ctx, "WATER", GRect(11, 40, 50, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, s_water_buf, GRect(52, 40, 56, 18), s_val_font, GTextAlignmentRight);
+  draw_vf(ctx, s_water_buf, GRect(52, 37, 56, 18), s_val_font, GTextAlignmentRight);
   int water_pct = (s_water_today > 0 && s_water_goal > 0)
                     ? (s_water_today * 100) / s_water_goal : 0;
   draw_bar(ctx, GRect(116, 46, 72, 8), water_pct);
@@ -175,7 +175,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   char batt_buf[8];
   snprintf(batt_buf, sizeof(batt_buf), "%d%%", s_battery);
   draw_vf(ctx, "BATTERY", GRect(11, 75, 70, 18), s_lbl_font, GTextAlignmentLeft);
-  draw_vf(ctx, batt_buf, GRect(58, 75, 50, 18), s_val_font, GTextAlignmentRight);
+  draw_vf(ctx, batt_buf, GRect(58, 72, 50, 18), s_val_font, GTextAlignmentRight);
   draw_bar(ctx, GRect(116, 81, 72, 8), s_battery);
 
   // ===================================================================
